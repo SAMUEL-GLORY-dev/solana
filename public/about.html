@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SONARA - About Me & Terms</title>
+<style>
+body, html{margin:0;padding:0;font-family:Arial,sans-serif;background:#0E0E10;color:white;}
+header{display:flex;align-items:center;justify-content:space-between;padding:15px 20px;background:#18181B;position:sticky;top:0;z-index:100;}
+header h1{margin:0;font-size:26px;font-weight:bold;}
+header button{background:#8B5CF6;border:none;padding:8px 12px;border-radius:6px;color:white;cursor:pointer;}
+.container{max-width:800px;margin:auto;padding:20px;}
+.profile-header{display:flex;align-items:center;gap:15px;margin-bottom:15px;}
+.profile-header img{width:80px;height:80px;border-radius:50%;object-fit:cover;}
+button{background:#8B5CF6;border:none;padding:8px 12px;border-radius:6px;color:white;cursor:pointer;}
+.follow-btn{margin-top:10px;}
+.section{background:#18181B;padding:15px;border-radius:12px;margin-bottom:20px;}
+h2,h3{margin:5px 0;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SONARA - About Me</h1>
+  <button onclick="goHome()">Home</button>
+</header>
+
+<div class="container">
+  <!-- ===== Profile Section ===== -->
+  <div class="profile-header section">
+    <img id="profile-pic">
+    <div>
+      <h2 id="username"></h2>
+      <span id="verified"></span>
+      <p id="bio"></p>
+      <p>Followers: <span id="followers-count"></span> | Following: <span id="following-count"></span></p>
+      <button id="follow-btn" class="follow-btn"></button>
+    </div>
+  </div>
+
+  <!-- ===== Terms and Conditions ===== -->
+  <div class="section">
+    <h3>Terms and Conditions</h3>
+    <p>Welcome to SONARA, your online music streaming and sharing platform. By using our service, you agree to the following terms:</p>
+    <ul>
+      <li>Users must not upload copyrighted content without permission.</li>
+      <li>SONARA is not responsible for any content uploaded by users.</li>
+      <li>Users may delete their own uploads, but not those of others unless you are an admin.</li>
+      <li>Profiles, playlists, and uploads are subject to SONARA guidelines.</li>
+      <li>SONARA may suspend accounts that violate these terms.</li>
+      <li>All data is stored securely and personal info is protected,you can contact us at "samuelgloriousssegawa@gmail.com".</li>
+    </ul>
+    <p>By using SONARA, you agree to these rules. Enjoy sharing and discovering music responsibly!</p>
+  </div>
+</div>
+
+<script>
+let token = localStorage.getItem("sonara_token") || "";
+let currentUser = localStorage.getItem("sonara_user") || "";
+
+function goHome(){ window.location.href="index.html"; }
+
+const params = new URLSearchParams(window.location.search);
+const profileUser = params.get("user") || currentUser;
+
+// Load Profile Info
+async function loadAbout(){
+  const res = await fetch(`/api/profile/${profileUser}`);
+  const data = await res.json();
+
+  document.getElementById("profile-pic").src = data.user.avatar || "https://via.placeholder.com/80";
+  document.getElementById("username").innerText = data.user.username;
+  document.getElementById("verified").innerHTML = data.user.verified ? "&#10004;" : "";
+  document.getElementById("bio").innerText = data.user.bio;
+  document.getElementById("followers-count").innerText = data.user.followers.length;
+  document.getElementById("following-count").innerText = data.user.following.length;
+
+  const btn = document.getElementById("follow-btn");
+
+  if(profileUser !== currentUser){
+    const me = await fetch(`/api/profile/${currentUser}`).then(r=>r.json());
+    if(me.user.following.includes(profileUser)){
+      btn.innerText="Unfollow";
+      btn.onclick=()=>unfollow(profileUser, btn);
+    } else {
+      btn.innerText="Follow";
+      btn.onclick=()=>follow(profileUser, btn);
+    }
+  } else {
+    btn.style.display="none";
+  }
+}
+
+// Follow / Unfollow
+async function follow(username, btn){
+  const res = await fetch(`/api/follow/${username}`, {method:"POST", headers:{Authorization:token}});
+  const data = await res.json();
+  alert(data.message);
+  btn.innerText="Unfollow";
+  btn.onclick=()=>unfollow(username, btn);
+  loadAbout();
+}
+
+async function unfollow(username, btn){
+  const res = await fetch(`/api/unfollow/${username}`, {method:"POST", headers:{Authorization:token}});
+  const data = await res.json();
+  alert(data.message);
+  btn.innerText="Follow";
+  btn.onclick=()=>follow(username, btn);
+  loadAbout();
+}
+
+loadAbout();
+</script>
+
+</body>
+</html>

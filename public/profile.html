@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title></title>
+<script>// Show follow/unfollow button
+const followBtn = document.createElement("button");
+if(profileUser !== currentUser){
+  const me = currentUser;
+  const targetUser = profileUser;
+
+  // Check if already following
+  fetch(`/api/profile/${currentUser}`).then(r=>r.json()).then(data=>{
+    if(data.user.following.includes(targetUser)){
+      followBtn.innerText="Unfollow";
+      followBtn.onclick = ()=>unfollowUser(targetUser, followBtn);
+    } else {
+      followBtn.innerText="Follow";
+      followBtn.onclick = ()=>followUser(targetUser, followBtn);
+    }
+    document.querySelector(".container").prepend(followBtn);
+  });
+}
+
+// Follow
+async function followUser(username, btn){
+  const res = await fetch(`/api/follow/${username}`, {method:"POST", headers:{Authorization:token}});
+  const data = await res.json();
+  alert(data.message);
+  btn.innerText = "Unfollow";
+  btn.onclick = ()=>unfollowUser(username, btn);
+}
+
+// Unfollow
+async function unfollowUser(username, btn){
+  const res = await fetch(`/api/unfollow/${username}`, {method:"POST", headers:{Authorization:token}});
+  const data = await res.json();
+  alert(data.message);
+  btn.innerText = "Follow";
+  btn.onclick = ()=>followUser(username, btn);
+}
+</script>
+
+<style>
+body, html{margin:0;padding:0;font-family:Arial,sans-serif;background:#0E0E10;color:white;}
+header{display:flex;align-items:center;justify-content:space-between;padding:15px 20px;background:#18181B;position:sticky;top:0;z-index:100;}
+header h1{margin:0;font-size:26px;font-weight:bold;}
+header button{background:#8B5CF6;border:none;padding:8px 12px;border-radius:6px;color:white;cursor:pointer;}
+.container{max-width:1100px;margin:auto;padding:20px;}
+.card{background:#18181B;padding:15px;margin-bottom:15px;border-radius:12px;transition:0.3s;box-shadow:0 0 15px rgba(139,92,246,0.2);}
+.card:hover{transform:translateY(-5px);}
+img{border-radius:50%;object-fit:cover;}
+img.song-img{width:100px;height:100px;border-radius:8px;object-fit:cover;margin-top:5px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SONARA Profile</h1>
+  <button onclick="goHome()">Home</button>
+</header>
+
+<div class="container">
+<h2 id="username-header"></h2>
+<img id="profile-pic" width="80" height="80">
+<p id="bio"></p>
+
+<h3>Uploads</h3>
+<div id="uploads"></div>
+
+<section id="edit-profile" style="display:none;">
+<h3>Edit Profile</h3>
+<input id="edit-username" placeholder="Username">
+<input id="edit-bio" placeholder="Bio">
+<input type="file" id="edit-avatar">
+<button onclick="updateProfile()">Save Changes</button>
+</section>
+
+</div>
+</style>
+
+<script>
+let token = localStorage.getItem("sonara_token") || "";
+let currentUser = localStorage.getItem("sonara_user") || "";
+
+// Go back to homepage
+function goHome(){ window.location.href="index.html"; }
+
+// Get username from URL query
+const params = new URLSearchParams(window.location.search);
+const profileUser = params.get("user") || currentUser;
+
+// Load profile
+async function loadProfile(){
+  const res = await fetch(`/api/profile/${profileUser}`);
+  const data = await res.json();
+  document.getElementById("username-header").innerText = data.user.username + (data.user.verified?" ✔️":"");
+  document.getElementById("profile-pic").src = data.user.avatar || 'https://via.placeholder.com/80';
+  document.getElementById("bio").innerText = data.user.bio;
+
+  // Show edit form only if viewing own profile
+  if(profileUser === currentUser){
+    document.getElementById("edit-profile").style.display = "block";
+    document.getElementById("edit-username").value = data.user.username;
+    document.getElementById("edit-bio").value = data.user.bio;
+  }
+
+  // Show uploads
+  let html = "";
+  data.songs.forEach(s=>{
+    html += `<div class="card">
+      <b>${s.title}</b> - ${s.artist} ${s.premium?"[Premium]":""}<br>
+      <img src="${s.uploaderAvatar}" width="40" height="40">
+      ${s.imageUrl ? `<img class="song-img" src="${s.imageUrl}">` : ""}
+      <audio controls src="${s.audioUrl}"></audio>
+      ${s.uploader===currentUser?`<button onclick="deleteSong('${s._id}')">Delete</button>`:""}
+    </div>`;
+  });
+  document.getElementById("uploads").innerHTML = html;
+}
+
+// Update profile
+async function updateProfile(){
+  const form = new FormData();
+  form.append("username", document.getElementById("edit-username").value);
+  form.append("bio", document.getElementById("edit-bio").value);
+  if(document.getElementById("edit-avatar").files[0]) form.append("avatar", document.getElementById("edit-avatar").files[0]);
+  
+  const res = await fetch("/api/profile/update", {
+    method:"PUT",
+    headers:{ Authorization: token },
+    body: form
+  });
+  const data = await res.json();
+  alert(data.message);
+  loadProfile();
+}
+
+// Delete song
+async function deleteSong(id){
+  await fetch("/api/delete/"+id,{method:"DELETE",headers:{Authorization: token}});
+  loadProfile();
+}
+
+// Initial load
+loadProfile();
+</script>
+
+</body>
+</html>

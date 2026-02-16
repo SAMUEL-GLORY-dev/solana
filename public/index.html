@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<header>
+  
+  
+  
+</header>
+
+
+
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SONARA Phase 3</title>
+<style>
+/* ===== Global Styles ===== */
+body, html{margin:0;padding:0;font-family:Arial,sans-serif;background:#0E0E10;color:white;}
+header{display:flex;align-items:center;justify-content:space-between;padding:15px 20px;background:#18181B;position:sticky;top:0;z-index:100;}
+header h1{margin:0;font-size:26px;font-weight:bold;}
+header input{padding:8px;border-radius:6px;border:none;width:250px;}
+.container{max-width:1100px;margin:auto;padding:20px;}
+section{margin-bottom:30px;}
+.card{background:#18181B;padding:15px;margin-bottom:15px;border-radius:12px;transition:0.3s;box-shadow:0 0 15px rgba(139,92,246,0.2);}
+.card:hover{transform:translateY(-5px);box-shadow:0 5px 25px rgba(139,92,246,0.4);}
+button{background:#8B5CF6;border:none;padding:8px 12px;margin-top:5px;border-radius:6px;color:white;cursor:pointer;transition:0.2s;}
+button:hover{opacity:0.8;}
+input, select{padding:8px;width:100%;margin:5px 0;border-radius:6px;border:none;background:#1A1A1D;color:white;}
+audio{width:100%;margin-top:10px;border-radius:6px;outline:none;}
+.playlist-card{background:#222225;padding:10px;margin:5px 0;border-radius:10px;}
+.profile-header{display:flex;align-items:center;gap:15px;margin-bottom:15px;}
+.profile-header img{width:60px;height:60px;border-radius:50%;object-fit:cover;}
+.carousel{display:flex;overflow-x:auto;gap:15px;padding:10px 0;}
+.carousel::-webkit-scrollbar{display:none;}
+.verified{color:#FACC15;font-weight:bold;margin-left:5px;}
+.admin-panel{background:#111113;padding:10px;border-radius:10px;margin-bottom:20px;}
+.analytics{background:#222225;padding:10px;border-radius:10px;margin-bottom:10px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SONARA</h1>
+  <input id="search" placeholder="Search songs, artists, users..." onkeyup="searchMusic()">
+</header>
+<button onclick="window.location.href='about.html?user='+currentUser">About Me</button>
+<button onclick="goProfile()">Profile</button>
+<script>
+function goProfile(){
+  if(!currentUser){
+    alert("Login first");
+    return;
+  }
+  // Redirect to profile page with username as query
+  window.location.href = `profile.html?user=${currentUser}`;
+}
+</script>
+<div class="container">
+
+<!-- ===== Auth Section ===== -->
+<section id="auth-section">
+<h3>Account</h3>
+<input id="username" placeholder="Username">
+<input id="password" type="password" placeholder="Password">
+<button onclick="register()">Register</button>
+<button onclick="login()">Login</button>
+<button onclick="logout()">Logout</button>
+<hr>
+</section>
+
+<!-- ===== Admin Panel ===== -->
+<section id="admin-section" style="display:none;" class="admin-panel">
+<h3>Admin Panel</h3>
+<input id="admin-username" placeholder="Username to verify">
+<button onclick="verifyUser()">Verify User</button>
+<input id="feature-song-id" placeholder="Song ID to feature">
+<button onclick="featureSong()">Feature Song</button>
+<input id="delete-song-id" placeholder="Song ID to delete">
+<button onclick="adminDeleteSong()">Delete Song</button>
+<hr>
+</section>
+
+<!-- ===== Upload Section ===== -->
+<form id="upload-form">
+  <input type="text" name="title" placeholder="Song Title" required><br>
+  <input type="text" name="artist" placeholder="Artist" required><br>
+  <input type="file" name="audio" accept="audio/*" required><br>
+  <input type="file" name="cover" accept="image/*"><br> <!-- song cover -->
+  <label>Premium: <input type="checkbox" name="premium"></label><br>
+  <button type="submit">Upload</button>
+</form>
+
+<script>
+const form = document.getElementById("upload-form");
+form.addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  const data = new FormData(form);
+  const token = localStorage.getItem("sonara_token");
+  const res = await fetch("/api/upload",{
+    method:"POST",
+    headers:{Authorization:token},
+    body:data
+  });
+  const result = await res.json();
+  alert(result.message);
+  form.reset();
+});
+</script>
+
+<script>
+const form = document.getElementById("upload-form");
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const data = new FormData(form);
+  const token = localStorage.getItem("sonara_token");
+  const res = await fetch("/api/upload", {
+    method: "POST",
+    headers: { Authorization: token },
+    body: data
+  });
+  const result = await res.json();
+  alert(result.message);
+  form.reset();
+});
+</script>
+
+
+
+<!-- ===== Featured Songs Carousel ===== -->
+<section>
+<h3>Featured</h3>
+<div id="featured" class="carousel"></div>
+</section>
+
+<!-- ===== Trending Songs ===== -->
+<section>
+<h3>Trending</h3>
+<div id="songs"></div>
+</section>
+
+<!-- ===== Playlists ===== -->
+<section id="playlists-section" style="display:none;">
+<h3>My Playlists</h3>
+<input id="playlist-name" placeholder="New Playlist Name">
+<button onclick="createPlaylist()">Create Playlist</button>
+<div id="playlists"></div>
+<hr>
+</section>
+
+<!-- ===== Profile View ===== -->
+<section id="profile-section" style="display:none;">
+<h3>Profile</h3>
+<div id="profile"></div>
+<hr>
+</section>
+
+</div>
+
+<script>
+let token="", currentUser="";
+
+// ==================== Auth ====================
+async function register(){
+  await fetch("/api/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:username.value,password:password.value})});
+  alert("Registered");
+}
+
+async function login(){
+  const res=await fetch("/api/login", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({username:username.value,password:password.value})
+  });
+  const data=await res.json();
+  if(data.token){
+    token=data.token;
+    currentUser=username.value;
+    // Auto-login storage
+    localStorage.setItem("sonara_token", token);
+    localStorage.setItem("sonara_user", currentUser);
+
+    alert("Logged in"); 
+    showUpload(); 
+    loadSongs(); 
+    loadFeatured(); 
+    loadPlaylists(); 
+    loadProfile();
+
+    if(currentUser==="admin") document.getElementById("admin-section").style.display="block";
+  } else alert(data.message);
+}
+
+// ==================== Auto-login on page load ====================
+window.addEventListener("load", () => {
+  const savedToken = localStorage.getItem("sonara_token");
+  const savedUser = localStorage.getItem("sonara_user");
+  if(savedToken && savedUser){
+    token = savedToken;
+    currentUser = savedUser;
+    showUpload();
+    loadSongs();
+    loadFeatured();
+    loadPlaylists();
+    loadProfile();
+    if(currentUser === "admin") document.getElementById("admin-section").style.display="block";
+  }
+});
+
+// ==================== Logout ====================
+function logout(){
+  localStorage.removeItem("sonara_token");
+  localStorage.removeItem("sonara_user");
+  token="";
+  currentUser="";
+  location.reload();
+}
+
+// ==================== Show Upload & Playlist UI ====================
+function showUpload(){
+  document.getElementById("upload-section").style.display="block";
+  document.getElementById("playlists-section").style.display="block";
+  document.getElementById("profile-section").style.display="block";
+}
+
+// ==================== Upload ====================
+async function upload(){
+  const form=new FormData();
+  form.append("title",title.value);
+  form.append("artist",artist.value);
+  form.append("audio",audio.files[0]);
+  form.append("premium",document.getElementById("premium").checked);
+  const res=await fetch("/api/upload",{method:"POST",headers:{Authorization:token},body:form});
+  const data=await res.json();
+  alert(data.message);
+  loadSongs();
+}
+
+// ==================== Load Songs ====================
+async function loadSongs(){
+  const res=await fetch("/api/songs");
+  const songs=await res.json();
+  renderSongs(songs);
+}
+
+function renderSongs(songs){
+  let html="";
+  songs.forEach(song=>{
+    html+=`
+    <div class="card">
+      <b>${song.title}</b> - ${song.artist} ${song.premium?"<span style='color:#F59E0B'>[Premium]</span>":""} <br>
+      ❤️ ${song.likes} | 👁 ${song.views} | 🎤 ${song.uploader} ${song.uploaderVerified?"<span class='verified'>&#10004;</span>":""}
+      <audio controls onplay="view('${song._id}')" src="${song.audioUrl}"></audio>
+      <button onclick="like('${song._id}')">Like</button>
+      ${song.uploader===currentUser?`<button onclick="deleteSong('${song._id}')">Delete</button>`:""}
+      <div>
+        <input id="c${song._id}" placeholder="Comment">
+        <button onclick="comment('${song._id}')">Send</button>
+      </div>
+      ${song.comments.map(c=>`<div><b>${c.user}:</b> ${c.text}</div>`).join("")}
+    </div>`;
+  });
+  document.getElementById("songs").innerHTML=html;
+}
+
+// ==================== Featured ====================
+async function loadFeatured(){
+  const res=await fetch("/api/featured");
+  const songs=await res.json();
+  let html="";
+  songs.forEach(s=>html+=`<div class="card" style="min-width:200px;"><b>${s.title}</b> - ${s.artist} ${s.premium?"<span style='color:#F59E0B'>[Premium]</span>":""}<audio controls src="${s.audioUrl}"></audio></div>`);
+  document.getElementById("featured").innerHTML=html;
+}
+
+// ==================== Playlists ====================
+async function createPlaylist(){
+  const name=document.getElementById("playlist-name").value;
+  const res=await fetch("/api/playlists",{method:"POST",headers:{"Content-Type":"application/json",Authorization:token},body:JSON.stringify({name})});
+  await res.json();
+  loadPlaylists();
+}
+
+async function loadPlaylists(){
+  const res=await fetch(`/api/playlists/${currentUser}`);
+  const pls=await res.json();
+  let html="";
+  pls.forEach(p=>{html+=`<div class="playlist-card"><b>${p.name}</b> | Songs: ${p.songs.length} <button onclick="sharePlaylist('${p._id}')">Share</button></div>`;});
+  document.getElementById("playlists").innerHTML=html;
+}
+
+async function sharePlaylist(id){await fetch(`/api/playlist/${id}/share`,{method:"POST",headers:{Authorization:token}}); alert("Playlist shared");}
+
+// ==================== Profile ====================
+async function loadProfile(){
+  const res=await fetch(`/api/profile/${currentUser}`);
+  const data=await res.json();
+  let html=`<div class="profile-header">
+              <img src="${data.user.avatar||'https://via.placeholder.com/60'}">
+              <div><b>${data.user.username}</b> <br>Followers: ${data.user.followers.length} | Following: ${data.user.following.length} ${data.user.verified?"<span class='verified'>&#10004;</span>":""}</div>
+            </div>
+            <div><b>Bio:</b> ${data.user.bio}</div>
+            <h4>Uploads:</h4>`;
+  data.songs.forEach(s=>html+=`<div class="card">${s.title} - ${s.artist}</div>`);
+  document.getElementById("profile").innerHTML=html;
+}
+
+// ==================== Actions ====================
+async function like(id){await fetch("/api/like/"+id,{method:"POST"});loadSongs();}
+async function view(id){await fetch("/api/view/"+id,{method:"POST"});}
+async function comment(id){const text=document.getElementById("c"+id).value;await fetch("/api/comment/"+id,{method:"POST",headers:{"Content-Type":"application/json",Authorization:token},body:JSON.stringify({text})});loadSongs();}
+async function deleteSong(id){await fetch("/api/delete/"+id,{method:"DELETE",headers:{Authorization:token}});loadSongs();}
+
+// ==================== Search ====================
+async function searchMusic(){
+  const q=document.getElementById("search").value;
+  if(!q) return loadSongs();
+  const res=await fetch("/api/search/"+q);
+  const songs=await res.json();
+  renderSongs(songs);
+}
+
+// ==================== Admin Actions ====================
+async function verifyUser(){await fetch("/api/admin/verify/"+document.getElementById("admin-username").value,{method:"POST",headers:{Authorization:token}});alert("User verified");}
+async function featureSong(){await fetch("/api/admin/feature/"+document.getElementById("feature-song-id").value,{method:"POST",headers:{Authorization:token}});alert("Song featured");loadFeatured();}
+async function adminDeleteSong(){await fetch("/api/admin/delete/"+document.getElementById("delete-song-id").value,{method:"DELETE",headers:{Authorization:token}});alert("Song deleted");loadSongs();}
+
+// ==================== Load Initial ====================
+loadSongs();
+loadFeatured();
+
+</script>
+
+</body>
+</html>
