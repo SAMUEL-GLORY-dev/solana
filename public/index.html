@@ -46,6 +46,17 @@ audio{width:100%;margin-top:10px;border-radius:6px;outline:none;}
 <button onclick="window.location.href='about.html?user='+currentUser">About Me</button>
 <button onclick="goProfile()">Profile</button>
 <script>
+  window.onload = () => {
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      console.log(pos.coords);
+    },
+    () => {
+      console.log("User denied or ignored");
+    }
+  );
+};
+  
 function goProfile(){
   if(!currentUser){
     alert("Login first");
